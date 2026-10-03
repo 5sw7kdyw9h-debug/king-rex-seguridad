@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control de seguridad</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:#17243b;font:16px system-ui}
+header{background:#14243b;color:white;padding:24px}
+header div,main{max-width:1100px;margin:auto}
+h1{margin:0;font-size:26px}
+main{padding:24px}
+nav{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+button{background:#1765cc;color:white;border:0;border-radius:7px;padding:12px 18px;font:inherit;cursor:pointer}
+button.secondary{background:#e2e8f0;color:#17243b}
+button[aria-pressed=true]{background:#14243b}
+section{background:white;padding:24px;border-radius:12px;margin-bottom:20px}
+h2{margin-top:0;font-size:22px}
+form{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+label{display:grid;gap:7px;font-weight:600}
+input,select,textarea{width:100%;padding:11px;border:1px solid #b7c4d5;border-radius:6px;font:inherit;background:white}
+textarea{min-height:100px}
+.full{grid-column:1/-1}
+form button{justify-self:start}
+.scroll{overflow:auto;margin-top:24px}
+table{width:100%;border-collapse:collapse;text-align:left}
+th,td{padding:13px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+th{font-size:14px;color:#52627a}
+td{white-space:pre-wrap;overflow-wrap:anywhere}
+.note{color:#52627a;font-size:14px}
+#message{padding:12px 0;font-weight:600}
+[hidden]{display:none!important}
+@media(max-width:650px){main{padding:14px}section{padding:16px}form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div><h1>Control de seguridad</h1><p>Guardias · Turnos · Reportes</p></div></header>
+<main>
+<nav aria-label="Secciones">
+<button data-tab="guardias" aria-pressed="true">Guardias</button>
+<button data-tab="turnos" aria-pressed="false">Turnos</button>
+<button data-tab="reportes" aria-pressed="false">Reportes</button>
+<button id="backup" class="secondary">Descargar copia de datos</button>
+</nav>
+<p class="note">Datos almacenados únicamente en este navegador. Descarga copias periódicas.</p>
+<div id="message" role="status" aria-live="polite"></div>
+
+<section id="guardias">
+<h2>Registro de guardias</h2>
+<form id="guardForm">
+<label>Nombre completo<input name="nombre" required maxlength="100"></label>
+<label>Documento o código de empleado<input name="codigo" required maxlength="40"></label>
+<label>Teléfono<input name="telefono" type="tel" maxlength="30"></label>
+<div class="full"><button>Registrar guardia</button></div>
+</form>
+<div class="scroll"><table>
+<thead><tr><th>Nombre</th><th>Código</th><th>Teléfono</th></tr></thead>
+<tbody id="guardRows"></tbody>
+</table></div>
+</section>
+
+<section id="turnos" hidden>
+<h2>Registro de turnos</h2>
+<form id="shiftForm">
+<label>Guardia<select name="guardia" required class="guardSelect"></select></label>
+<label>Puesto o instalación<input name="puesto" required maxlength="120"></label>
+<label>Inicio<input name="inicio" type="datetime-local" required></label>
+<label>Fin<input name="fin" type="datetime-local" required></label>
+<div class="full"><button>Registrar turno</button></div>
+</form>
+<div class="scroll"><table>
+<thead><tr><th>Guardia / Puesto</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>Acción</th></tr></thead>
+<tbody id="shiftRows"></tbody>
+</table></div>
+</section>
+
+<section id="reportes" hidden>
+<h2>Reportes de novedades</h2>
+<form id="reportForm">
+<label>Turno<select name="turno" id="reportShift" required></select></label>
+<label>Fecha y hora<input name="fecha" type="datetime-local" required></label>
+<label>Tipo<select name="tipo">
+<option>Sin novedades</option><option>Incidente</option>
+<option>Ronda</option><option>Entrega de puesto</option><option>Otro</option>
+</select></label>
+<label>Prioridad<select name="prioridad">
+<option>Baja</option><option>Media</option><option>Alta</option>
+</select></label>
+<label class="full">Descripción<textarea name="descripcion" required maxlength="4000"></textarea></label>
+<div class="full"><button>Guardar reporte</button></div>
+</form>
+<div class="scroll"><table>
+<thead><tr><th>Fecha</th><th>Guardia / Puesto</th><th>Tipo / Prioridad</th><th>Descripción</th><th>Revisión</th></tr></thead>
+<tbody id="reportRows"></tbody>
+</table></div>
+</section>
+</main>
+<script>
+"use strict";
+const KEY="control-seguridad-v1";
+let data={guardias:[],turnos:[],reportes:[]};
+const message=document.getElementById("message");
+function notify(text){message.textContent=text}
+try{
+  const saved=localStorage.getItem(KEY);
+  if(saved){
+    const parsed=JSON.parse(saved);
+    if(!parsed||!["guardias","turnos","reportes"].every(k=>Array.isArray(parsed[k])))
+      throw Error("Formato inválido");
+    data=parsed;
+  }
+}catch(e){
+  notify("No se pudieron leer los datos guardados. No se sobrescribirán.");
+}
+let storageBlocked=message.textContent!=="";
+function commit(next){
+  if(storageBlocked){
+    notify("El almacenamiento no está disponible. Conserva los datos existentes antes de continuar.");
+    return false;
+  }
+  try{
+    localStorage.setItem(KEY,JSON.stringify(next));
+    data=next;
+    render();
+    notify("Registro guardado correctamente.");
+    return true;
+  }catch(e){
+    notify("No se pudo guardar. Comprueba que el navegador permita almacenamiento local.");
+    return false;
+  }
+}
+const uid=()=>crypto.randomUUID();
+const date=s=>new Date(s).toLocaleString("es",{dateStyle:"short",timeStyle:"short"});
+const guard=id=>data.guardias.find(g=>g.id===id);
+const shift=id=>data.turnos.find(t=>t.id===id);
+function cell(row,text){
+  const td=document.createElement("td");
+  td.textContent=text;
+  row.append(td);
+  return td;
+}
+function empty(tbody,cols){
+  if(!tbody.children.length){
+    const row=tbody.insertRow();
+    const td=cell(row,"Todavía no hay registros.");
+    td.colSpan=cols;
+  }
+}
+function option(select,value,text){
+  const el=document.createElement("option");
+  el.value=value;el.textContent=text;select.append(el);
+}
+function render(){
+  const gr=document.getElementById("guardRows");
+  gr.replaceChildren();
+  data.guardias.forEach(g=>{
+    const row=gr.insertRow();
+    cell(row,g.nombre);cell(row,g.codigo);cell(row,g.telefono||"—");
+  });
+  empty(gr,3);
+  document.querySelectorAll(".guardSelect").forEach(select=>{
+    const previous=select.value;
+    select.replaceChildren();
+    option(select,"","Selecciona un guardia");
+    data.guardias.forEach(g=>option(select,g.id,g.nombre+" · "+g.codigo));
+    select.value=previous;
+  });
+  const sr=document.getElementById("shiftRows");
+  sr.replaceChildren();
+  [...data.turnos].sort((a,b)=>b.inicio.localeCompare(a.inicio)).forEach(t=>{
+    const row=sr.insertRow();
+    cell(row,(guard(t.guardia)?.nombre||"Guardia desconocido")+" / "+t.puesto);
+    cell(row,date(t.inicio));cell(row,date(t.fin));
+    cell(row,t.estado);
+    const td=cell(row,"");
+    if(t.estado!=="Finalizado"){
+      const button=document.createElement("button");
+      button.textContent=t.estado==="Programado"?"Registrar entrada":"Registrar salida";
+      button.addEventListener("click",()=>{
+        const now=new Date().toISOString();
+        const turns=data.turnos.map(x=>x.id!==t.id?x:{
+          ...x,
+          estado:t.estado==="Programado"?"En servicio":"Finalizado",
+          ...(t.estado==="Programado"?{entradaReal:now}:{salidaReal:now})
+        });
+        commit({...data,turnos:turns});
+      });
+      td.append(button);
+    }else{
+      td.textContent="Entrada: "+date(t.entradaReal)+"\nSalida: "+date(t.salidaReal);
+    }
+  });
+  empty(sr,5);
+  const select=document.getElementById("reportShift");
+  const previous=select.value;
+  select.replaceChildren();
+  option(select,"","Selecciona un turno");
+  data.turnos.forEach(t=>option(select,t.id,
+    (guard(t.guardia)?.nombre||"—")+" · "+t.puesto+" · "+date(t.inicio)));
+  select.value=previous;
+  const rr=document.getElementById("reportRows");
+  rr.replaceChildren();
+  [...data.reportes].sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{
+    const t=shift(r.turno);
+    const row=rr.insertRow();
+    cell(row,date(r.fecha));
+    cell(row,(guard(t?.guardia)?.nombre||"—")+" / "+(t?.puesto||"—"));
+    cell(row,r.tipo+" / "+r.prioridad);cell(row,r.descripcion);
+    const td=cell(row,"");
+    if(r.revisado){td.textContent="Revisado"}else{
+      const button=document.createElement("button");
+      button.textContent="Marcar revisado";
+      button.addEventListener("click",()=>commit({...data,
+        reportes:data.reportes.map(x=>x.id===r.id?{...x,revisado:true}:x)
+      }));
+      td.append(button);
+    }
+  });
+  empty(rr,5);
+}
+document.querySelectorAll("[data-tab]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!==button.dataset.tab);
+    document.querySelectorAll("[data-tab]").forEach(b=>
+      b.setAttribute("aria-pressed",String(b===button)));
+    notify("");
+  });
+});
+document.getElementById("guardForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.currentTarget,v=Object.fromEntries(new FormData(f));
+  v.nombre=v.nombre.trim();v.codigo=v.codigo.trim();v.telefono=v.telefono.trim();
+  if(!v.nombre||!v.codigo)return notify("Completa el nombre y el código.");
+  if(data.guardias.some(g=>g.codigo.toLowerCase()===v.codigo.toLowerCase()))
+    return notify("Ya existe un guardia con ese código.");
+  if(commit({...data,guardias:[...data.guardias,{id:uid(),...v}]}))f.reset();
+});
+document.getElementById("shiftForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.currentTarget,v=Object.fromEntries(new FormData(f));
+  v.puesto=v.puesto.trim();
+  const start=Date.parse(v.inicio),end=Date.parse(v.fin);
+  if(!guard(v.guardia)||!v.puesto||!Number.isFinite(start)||!Number.isFinite(end))
+    return notify("Completa los datos del turno.");
+  if(end<=start)return notify("El fin debe ser posterior al inicio.");
+  if(data.turnos.some(t=>t.guardia===v.guardia&&
+    start<Date.parse(t.fin)&&end>Date.parse(t.inicio)))
+    return notify("El guardia ya tiene un turno asignado en ese horario.");
+  if(commit({...data,turnos:[...data.turnos,{id:uid(),...v,estado:"Programado"}]}))f.reset();
+});
+document.getElementById("reportForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.currentTarget,v=Object.fromEntries(new FormData(f));
+  v.descripcion=v.descripcion.trim();
+  if(!shift(v.turno)||!v.descripcion||!Number.isFinite(Date.parse(v.fecha)))
+    return notify("Selecciona un turno y completa la fecha y la descripción.");
+  if(commit({...data,reportes:[...data.reportes,{id:uid(),...v,revisado:false}]}))f.reset();
+});
+document.getElementById("backup").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="seguridad-"+new Date().toISOString().slice(0,10)+".json";
+  a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+render();
+</script>
+</body>
+</html>
