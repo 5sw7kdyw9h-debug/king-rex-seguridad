@@ -127,8 +127,21 @@
 </section></main>
 <div id="tabs" class="tabs hidden"><button id="thome" class="active" onclick="go('home')">🏠<br>Inicio</button><button id="tlog" onclick="go('log')">📝<br>Registrar</button><button id="thistory" onclick="go('history')">📚<br>Bitácora</button></div>
 <script>
-var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d))}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
-async function doLogin(){var u=document.getElementById('loginUser').value.trim().toLowerCase(),pw=document.getElementById('loginPass').value,person='';if(u=='admin'||u=='admin@kingrex.app'){try{if(!window.kingRexFirebaseLogin){alert('Firebase todavía está cargando. Espere unos segundos e intente nuevamente.');return}var fb=await window.kingRexFirebaseLogin('admin@kingrex.app',pw);if(!fb||fb.role!='admin'||fb.active!==true){alert('La cuenta no tiene permisos de administrador o está inactiva.');if(window.kingRexFirebaseLogout)await window.kingRexFirebaseLogout();return}r='Administrador';person=fb.name||'ADMINISTRADOR KING REX'}catch(e){console.error(e);alert('No se pudo iniciar sesión. Verifique la contraseña del administrador y la conexión a Internet.');return}}else if(u=='guardia'&&pw=='1234'){r='Vigilante';person='Vigilante de prueba';currentGuard={name:'Vigilante de prueba',post:'Proyecto / Puesto Nocturno',shift:'12 horas nocturno sin relevo'}}else{var d=D(),found=(d.guards||[]).find(function(g){return g.user==u&&g.pass==pw&&g.active});if(!found){alert('Usuario o contraseña incorrectos, o la cuenta está inactiva.');return}r='Vigilante';person=found.name;currentGuard=found}loginSection(false);document.getElementById('welcome').innerText='Bienvenido - '+(person||r);document.getElementById('role').innerText=r.toUpperCase();document.getElementById('guard').classList.toggle('hidden',r=='Administrador');document.getElementById('admin').classList.toggle('hidden',r!='Administrador');document.getElementById('tlog').classList.toggle('hidden',r=='Administrador');applyGuardAssignment();restore();historyRender();renderProjects();fillPosts();fillReportProjects();renderGuards();go('home')}
+var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d));if(window.kingRexCloudSync)window.kingRexCloudSync(d).catch(function(e){console.warn('Sincronización pendiente',e)})}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+async function doLogin(){
+ var u=document.getElementById('loginUser').value.trim().toLowerCase(),pw=document.getElementById('loginPass').value,person='';
+ try{
+  if(!window.kingRexFirebaseLogin){alert('Firebase todavía está cargando. Espere unos segundos e intente nuevamente.');return}
+  var email=(u=='admin'||u=='admin@kingrex.app')?'admin@kingrex.app':(u.indexOf('@')>=0?u:u.replace(/[^a-z0-9._-]/g,'')+'@kingrex.app');
+  var fb=await window.kingRexFirebaseLogin(email,pw);
+  if(!fb||fb.active!==true){alert('La cuenta está inactiva.');if(window.kingRexFirebaseLogout)await window.kingRexFirebaseLogout();return}
+  if(fb.role=='admin'){r='Administrador';person=fb.name||'ADMINISTRADOR KING REX';currentGuard=null}
+  else if(fb.role=='guard'){r='Vigilante';person=fb.name||u;currentGuard={id:fb.localId||fb.uid||'',name:fb.name||u,cedula:fb.cedula||'No registrada',phone:fb.phone||'',user:fb.username||u,projectId:fb.projectId||'',postId:fb.postId||'',project:fb.project||'',postName:fb.postName||'',post:fb.post||'',shift:fb.shift||'',active:fb.active!==false}}
+  else{alert('La cuenta no tiene un rol autorizado.');return}
+ }catch(e){console.error(e);alert('No se pudo iniciar sesión. Verifique usuario, contraseña y conexión a Internet.');return}
+ if(window.kingRexLoadCloud)await window.kingRexLoadCloud();
+ loginSection(false);document.getElementById('welcome').innerText='Bienvenido - '+(person||r);document.getElementById('role').innerText=r.toUpperCase();document.getElementById('guard').classList.toggle('hidden',r=='Administrador');document.getElementById('admin').classList.toggle('hidden',r!='Administrador');document.getElementById('tlog').classList.toggle('hidden',r=='Administrador');applyGuardAssignment();restore();historyRender();renderProjects();fillPosts();fillReportProjects();renderGuards();go('home')
+}
 async function firebaseAwareLogout(){try{if(window.kingRexFirebaseLogout)await window.kingRexFirebaseLogout()}catch(e){console.warn(e)}r='';currentGuard=null;loginSection(true)}
 function loginSection(x){document.getElementById('loginScreen').classList.toggle('hidden',!x);document.getElementById('app').classList.toggle('hidden',x);document.getElementById('head').classList.toggle('hidden',x);document.getElementById('tabs').classList.toggle('hidden',x)}function logout(){firebaseAwareLogout()}
 function go(id){document.querySelectorAll('.view').forEach(function(x){x.classList.add('hidden')});document.getElementById(id).classList.remove('hidden');['home','log','history'].forEach(function(x){var b=document.getElementById('t'+x);if(b)b.classList.remove('active')});var b=document.getElementById('t'+id);if(b)b.classList.add('active');if(id=='history')historyRender();if(id=='projects'){renderProjects();fillPosts()}if(id=='guards'){fillGuardProjects();renderGuards()}if(id=='reports'){fillReportProjects();toggleReportDate()}stats()}
@@ -142,10 +155,10 @@ function compressPhoto(file,callback){
   var im=new Image();
   im.onload=function(){
    try{
-    var max=1100,w=im.width,h=im.height;
+    var max=800,w=im.width,h=im.height;
     if(w>max||h>max){var sc=Math.min(max/w,max/h);w=Math.round(w*sc);h=Math.round(h*sc)}
     var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);
-    callback(c.toDataURL('image/jpeg',0.68))
+    callback(c.toDataURL('image/jpeg',0.55))
    }catch(err){alert('No se pudo procesar la fotografía.');callback(null)}
   };
   im.onerror=function(){alert('No se pudo leer la fotografía.');callback(null)};
@@ -163,9 +176,9 @@ function startShift(){
   if(img===null)return;
   try{
    var d=D();
-   shift={id:Date.now(),vigilante:(currentGuard&&currentGuard.name)||'Vigilante',cedula:(currentGuard&&currentGuard.cedula)||'No registrada',puesto:post,modalidad:document.getElementById('modalidad').value,turnoTipo:document.getElementById('turnoTipo').value,start:N(),inicio:document.getElementById('inicio').value,consigna:document.getElementById('consInicio').value,startPhoto:img};
+   shift={id:Date.now(),userId:(currentGuard&&currentGuard.id)||'',vigilante:(currentGuard&&currentGuard.name)||'Vigilante',cedula:(currentGuard&&currentGuard.cedula)||'No registrada',puesto:post,modalidad:document.getElementById('modalidad').value,turnoTipo:document.getElementById('turnoTipo').value,start:N(),inicio:document.getElementById('inicio').value,consigna:document.getElementById('consInicio').value,startPhoto:img};
    d.shifts.push(shift);
-   d.logs.push({id:Date.now()+1,type:'Inicio de turno',desc:shift.inicio,at:shift.start,puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula,turnoTipo:shift.turnoTipo,modalidad:shift.modalidad,photo:img});
+   d.logs.push({id:Date.now()+1,userId:(currentGuard&&currentGuard.id)||'',type:'Inicio de turno',desc:shift.inicio,at:shift.start,puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula,turnoTipo:shift.turnoTipo,modalidad:shift.modalidad,photo:img});
    P(d);localStorage.setItem('kingrex_active',JSON.stringify(shift));
    document.getElementById('startPhoto').value='';restore();alert('Turno iniciado correctamente. La foto de presencia quedó registrada.')
   }catch(e){alert('No se pudo iniciar el turno. El almacenamiento de esta versión de prueba puede estar lleno.')}
@@ -187,7 +200,7 @@ function saveLog(){
  var file=document.getElementById('foto').files[0];
  function done(img){
   try{
-   var d=D();d.logs.push({id:Date.now(),type:document.getElementById('tipo').value,desc:text,at:N(),puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula||'No registrada',turnoTipo:shift.turnoTipo||'',modalidad:shift.modalidad||'',photo:img||''});P(d);
+   var d=D();d.logs.push({id:Date.now(),userId:(currentGuard&&currentGuard.id)||'',type:document.getElementById('tipo').value,desc:text,at:N(),puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula||'No registrada',turnoTipo:shift.turnoTipo||'',modalidad:shift.modalidad||'',photo:img||''});P(d);
    document.getElementById('desc').value='';document.getElementById('foto').value='';
    alert('Registro guardado correctamente en la bitácora.');historyRender()
   }catch(e){alert('No se pudo guardar el registro. El almacenamiento de esta versión de prueba está lleno.')}
@@ -199,11 +212,11 @@ function saveLog(){
   var im=new Image();
   im.onload=function(){
    try{
-    var max=1100,w=im.width,h=im.height;
+    var max=800,w=im.width,h=im.height;
     if(w>max||h>max){var scale=Math.min(max/w,max/h);w=Math.round(w*scale);h=Math.round(h*scale)}
     var c=document.createElement('canvas');c.width=w;c.height=h;
     var cx=c.getContext('2d');cx.drawImage(im,0,0,w,h);
-    done(c.toDataURL('image/jpeg',0.68))
+    done(c.toDataURL('image/jpeg',0.55))
    }catch(err){alert('No se pudo procesar la fotografía. Intente con otra imagen.')}
   };
   im.onerror=function(){alert('No se pudo leer la fotografía seleccionada.')};
@@ -228,7 +241,7 @@ function closeShift(){
    if(closeType=='Entrego turno a otro vigilante'&&!receiver){alert('Escriba el nombre del vigilante que recibe el turno.');return}
    var closeLabel=closeType=='Entrego turno a otro vigilante'?'Entrego turno a: '+receiver:closeType;
    for(var i=0;i<d.shifts.length;i++)if(d.shifts[i].id==shift.id){d.shifts[i].end=t;d.shifts[i].cierre=closeLabel;d.shifts[i].fin=closeText;d.shifts[i].receiver=receiver;d.shifts[i].endPhoto=img||''}
-   d.logs.push({id:Date.now(),type:'Fin de turno',desc:closeText+' - '+closeLabel,at:t,puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula||'No registrada',turnoTipo:shift.turnoTipo||'',modalidad:shift.modalidad||'',receiver:receiver,photo:img||''});
+   d.logs.push({id:Date.now(),userId:(currentGuard&&currentGuard.id)||'',type:'Fin de turno',desc:closeText+' - '+closeLabel,at:t,puesto:shift.puesto,vigilante:shift.vigilante,cedula:shift.cedula||'No registrada',turnoTipo:shift.turnoTipo||'',modalidad:shift.modalidad||'',receiver:receiver,photo:img||''});
    P(d);localStorage.removeItem('kingrex_active');document.getElementById('endPhoto').value='';document.getElementById('receiver').value='';shift=null;restore();go('home');alert('Turno cerrado correctamente.')
   }catch(e){alert('No se pudo cerrar el turno. El almacenamiento de esta versión de prueba puede estar lleno.')}
  })
@@ -254,7 +267,7 @@ function historyRender(){
  });
  stats()
 }function stats(){var d=D();nlogs.innerText=d.logs.length;nshifts.innerText=d.shifts.length}
-function createGuard(){
+async function createGuard(){
  var name=document.getElementById('gname').value.trim(),id=document.getElementById('gid').value.trim(),u=document.getElementById('guser').value.trim().toLowerCase(),pw=document.getElementById('gpass').value.trim();
  var d=D(),pname=document.getElementById('gproject').value,sname=document.getElementById('gpost').value;
  var p=d.projects.find(function(x){return x.name==pname}),q=p&&p.posts.find(function(x){return x.name==sname});
@@ -263,7 +276,9 @@ function createGuard(){
  if(!q){alert('Seleccione un puesto del proyecto. Si no aparece ninguno, agréguelo primero en Proyectos y Puestos.');return}
  if(u=='admin'||u=='guardia'||d.guards.some(function(g){return g.user==u})){alert('Ese usuario ya existe. Elija otro.');return}
  var assignment=p.name+' / '+q.name,mode=[q.mode,q.hours,q.schedule,q.relief].filter(Boolean).join(' · ');
- d.guards.push({id:Date.now(),name:name,cedula:id,phone:document.getElementById('gphone').value.trim(),user:u,pass:pw,projectId:p.id,postId:q.id,project:p.name,postName:q.name,post:assignment,shift:mode,active:true});
+ var guardObj={id:Date.now(),name:name,cedula:id,phone:document.getElementById('gphone').value.trim(),user:u,projectId:p.id,postId:q.id,project:p.name,postName:q.name,post:assignment,shift:mode,active:true};
+ try{if(!window.kingRexCreateGuardAccount)throw new Error('Firebase no está listo');await window.kingRexCreateGuardAccount(guardObj,pw)}catch(e){console.error(e);alert('No se pudo crear la cuenta en Firebase. '+(e&&e.message?e.message:''));return}
+ d.guards.push(guardObj);
  P(d);
  document.getElementById('gname').value='';document.getElementById('gid').value='';document.getElementById('gphone').value='';document.getElementById('guser').value='';document.getElementById('gpass').value='';document.getElementById('gproject').value='';fillGuardPosts();
  document.getElementById('newGuard').classList.add('hidden');renderGuards();alert('Cuenta creada y asignada a '+assignment+'.')
@@ -438,9 +453,9 @@ function renderGuards(){var box=document.getElementById('guardList');if(!box)ret
 window.onload=function(){canvas('sig1');canvas('sig2')}
 </script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAD-DxsG2lTrjyHlHOZbRWtQPFI4x0G5zs",
@@ -450,19 +465,74 @@ const firebaseConfig = {
   messagingSenderId: "570541616360",
   appId: "1:570541616360:web:1a673a191c8ee3a1ed6d5d"
 };
+const firebaseApp=initializeApp(firebaseConfig),auth=getAuth(firebaseApp),db=getFirestore(firebaseApp);
+let cloudStarted=false,cloudBusy=false;
+const clean=o=>JSON.parse(JSON.stringify(o));
+function localData(){try{return JSON.parse(localStorage.getItem('kingrex_demo_v1'))||{}}catch(e){return {}}}
+function saveLocal(d){localStorage.setItem('kingrex_demo_v1',JSON.stringify(d))}
 
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-
-window.kingRexFirebaseLogin = async function(email, password){
-  const credential = await signInWithEmailAndPassword(auth, email, password);
-  const snap = await getDoc(doc(db, "users", credential.user.uid));
-  if (!snap.exists()) throw new Error("No existe el perfil del usuario en Firestore");
-  return snap.data();
+window.kingRexFirebaseLogin=async function(email,password){
+ const credential=await signInWithEmailAndPassword(auth,email,password);
+ const snap=await getDoc(doc(db,'users',credential.user.uid));
+ if(!snap.exists())throw new Error('No existe el perfil del usuario en Firestore');
+ return Object.assign({uid:credential.user.uid},snap.data());
 };
-window.kingRexFirebaseLogout = async function(){ await signOut(auth); };
-window.kingRexFirebaseReady = true;
-console.log("KING REX Firebase listo");
+window.kingRexFirebaseLogout=async function(){await signOut(auth)};
+
+window.kingRexCreateGuardAccount=async function(g,password){
+ if(!auth.currentUser)throw new Error('Debe ingresar como administrador');
+ const adminSnap=await getDoc(doc(db,'users',auth.currentUser.uid));
+ if(!adminSnap.exists()||adminSnap.data().role!=='admin')throw new Error('Solo el administrador puede crear vigilantes');
+ const email=(g.user||'').replace(/[^a-z0-9._-]/g,'')+'@kingrex.app';
+ const secondary=initializeApp(firebaseConfig,'guard-create-'+Date.now());
+ try{
+  const a=getAuth(secondary),cred=await createUserWithEmailAndPassword(a,email,password);
+  await setDoc(doc(db,'users',cred.user.uid),{role:'guard',active:true,name:g.name,cedula:g.cedula||'',phone:g.phone||'',username:g.user,projectId:g.projectId,postId:g.postId,project:g.project,postName:g.postName,post:g.post,shift:g.shift,localId:g.id,createdAt:new Date().toISOString()});
+  await signOut(a);
+ }finally{await deleteApp(secondary)}
+};
+
+window.kingRexCloudSync=async function(d){
+ if(cloudBusy||!auth.currentUser)return;
+ cloudBusy=true;
+ try{
+  const me=await getDoc(doc(db,'users',auth.currentUser.uid)),profile=me.exists()?me.data():{};
+  if(profile.role==='admin'){
+   const guards=(d.guards||[]).map(g=>{const x=clean(g);delete x.pass;return x});
+   await setDoc(doc(db,'config','main'),{projects:clean(d.projects||[]),guards:guards,updatedAt:new Date().toISOString()},{merge:true});
+  }
+  for(const x of (d.logs||[]))await setDoc(doc(db,'logs',String(x.id)),clean(x),{merge:true});
+  for(const x of (d.shifts||[]))await setDoc(doc(db,'shifts',String(x.id)),clean(x),{merge:true});
+ }finally{cloudBusy=false}
+};
+
+async function hydrate(){
+ if(!auth.currentUser)return;
+ const me=await getDoc(doc(db,'users',auth.currentUser.uid));
+ if(!me.exists())throw new Error('Perfil de usuario no encontrado');
+ const profile=me.data(),isAdmin=profile.role==='admin';
+ const d=localData();d.logs=[];d.shifts=[];d.projects=d.projects||[];d.guards=d.guards||[];
+ const logsRef=isAdmin?collection(db,'logs'):query(collection(db,'logs'),where('userId','==',auth.currentUser.uid));
+ const shiftsRef=isAdmin?collection(db,'shifts'):query(collection(db,'shifts'),where('userId','==',auth.currentUser.uid));
+ const jobs=[getDocs(logsRef),getDocs(shiftsRef)];
+ if(isAdmin)jobs.unshift(getDoc(doc(db,'config','main')));
+ const out=await Promise.all(jobs);
+ let logs,shifts;
+ if(isAdmin){const cfg=out[0];logs=out[1];shifts=out[2];if(cfg.exists()){const c=cfg.data();d.projects=c.projects||[];d.guards=c.guards||[]}}
+ else{logs=out[0];shifts=out[1]}
+ logs.forEach(q=>d.logs.push(q.data()));shifts.forEach(q=>d.shifts.push(q.data()));saveLocal(d);
+}
+window.kingRexLoadCloud=async function(){
+ await hydrate();
+ if(cloudStarted)return;cloudStarted=true;
+ const me=await getDoc(doc(db,'users',auth.currentUser.uid)),profile=me.exists()?me.data():{},isAdmin=profile.role==='admin';
+ const logsRef=isAdmin?collection(db,'logs'):query(collection(db,'logs'),where('userId','==',auth.currentUser.uid));
+ const shiftsRef=isAdmin?collection(db,'shifts'):query(collection(db,'shifts'),where('userId','==',auth.currentUser.uid));
+ onSnapshot(logsRef,snap=>{const d=localData();d.logs=snap.docs.map(x=>x.data());saveLocal(d);if(window.historyRender)historyRender();if(window.stats)stats()},e=>console.warn('Logs Firebase',e));
+ onSnapshot(shiftsRef,snap=>{const d=localData();d.shifts=snap.docs.map(x=>x.data());saveLocal(d);if(window.stats)stats()},e=>console.warn('Turnos Firebase',e));
+ if(isAdmin)onSnapshot(doc(db,'config','main'),snap=>{if(!snap.exists())return;const d=localData(),c=snap.data();d.projects=c.projects||[];d.guards=c.guards||[];saveLocal(d);if(window.renderProjects)renderProjects();if(window.renderGuards)renderGuards();if(window.fillReportProjects)fillReportProjects()},e=>console.warn('Config Firebase',e));
+};
+window.kingRexFirebaseReady=true;
+console.log('KING REX V7 Firebase multidispositivo listo');
 </script>
 </body></html>
