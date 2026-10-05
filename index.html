@@ -360,13 +360,37 @@ function savePost(pid){
 }
 function toggleProject(id){var d=D(),p=d.projects.find(function(x){return x.id==id});if(p)p.active=!p.active;P(d);renderProjects();fillGuardProjects();fillReportProjects()}
 function togglePost(pid,sid){var d=D(),p=d.projects.find(function(x){return x.id==pid});if(p){var q=p.posts.find(function(x){return x.id==sid});if(q)q.active=!q.active}P(d);renderProjects();fillGuardProjects();fillReportProjects()}
+function krNorm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function krProjectOf(x){return x&&(x.project||x.proyecto||x.projectName||x.proyectoNombre||'')}
+function krPostOf(x){return x&&(x.post||x.puesto||x.postName||x.puestoNombre||'')}
+function projectHasHistory(d,pname){return (d.logs||[]).some(function(x){return krNorm(krProjectOf(x))==krNorm(pname)})||(d.shifts||[]).some(function(x){return krNorm(krProjectOf(x))==krNorm(pname)})}
+function postHasHistory(d,pname,qname){function hit(x){var xp=krNorm(krProjectOf(x)),xq=krNorm(krPostOf(x));return xp==krNorm(pname)&&xq==krNorm(qname)}return (d.logs||[]).some(hit)||(d.shifts||[]).some(hit)}
+function projectAssigned(d,pname){return (d.guards||[]).some(function(g){return krNorm(g.project||g.proyecto||'')==krNorm(pname)})}
+function postAssigned(d,pname,qname){return (d.guards||[]).some(function(g){return krNorm(g.project||g.proyecto||'')==krNorm(pname)&&krNorm(g.post||g.puesto||'')==krNorm(qname)})}
+function deletePost(pid,sid){
+ if(r!='Administrador'){alert('Solo el administrador puede eliminar puestos.');return}
+ var d=D(),p=d.projects.find(function(x){return x.id==pid});if(!p)return;var q=(p.posts||[]).find(function(x){return x.id==sid});if(!q)return;
+ if(postHasHistory(d,p.name,q.name)){alert('No se puede eliminar este puesto porque tiene turnos o registros de bitácora asociados. Puede DESACTIVARLO para conservar el historial.');return}
+ if(postAssigned(d,p.name,q.name)){alert('No se puede eliminar este puesto porque está asignado a uno o más vigilantes. Reasigne primero esas cuentas.');return}
+ if(!confirm('¿Eliminar definitivamente el puesto "'+q.name+'"? Esta acción no se puede deshacer.'))return;
+ p.posts=p.posts.filter(function(x){return x.id!=sid});P(d);renderProjects();fillGuardProjects();fillReportProjects();alert('Puesto eliminado definitivamente.')
+}
+function deleteProject(id){
+ if(r!='Administrador'){alert('Solo el administrador puede eliminar proyectos.');return}
+ var d=D(),p=d.projects.find(function(x){return x.id==id});if(!p)return;
+ if(projectHasHistory(d,p.name)){alert('No se puede eliminar este proyecto porque tiene turnos o registros de bitácora asociados. Puede DESACTIVARLO para conservar el historial.');return}
+ if(projectAssigned(d,p.name)){alert('No se puede eliminar este proyecto porque está asignado a uno o más vigilantes. Reasigne primero esas cuentas.');return}
+ if((p.posts||[]).length){alert('Para eliminar definitivamente el proyecto, primero elimine sus puestos sin historial.');return}
+ if(!confirm('¿Eliminar definitivamente el proyecto "'+p.name+'"? Esta acción no se puede deshacer.'))return;
+ d.projects=d.projects.filter(function(x){return x.id!=id});P(d);renderProjects();fillGuardProjects();fillReportProjects();alert('Proyecto eliminado definitivamente.')
+}
 function renderProjects(){
  var box=document.getElementById('projectList');if(!box)return;var d=D();box.innerHTML=d.projects.length?'':'<p class="muted">Todavía no hay proyectos registrados.</p>';
  d.projects.forEach(function(p){var x=document.createElement('div');x.className='item';var h='<b>'+E(p.name)+'</b> <span class="pill '+(p.active?'':'off')+'">'+(p.active?'ACTIVO':'INACTIVO')+'</span><div class="time">'+p.posts.length+' puesto(s)</div>';
  h+='<button class="primary full" onclick="showPostForm('+p.id+')">+ AGREGAR PUESTO</button>';
  h+='<div id="postForm_'+p.id+'" class="hidden" style="margin-top:10px;padding:12px;background:#eef6fc;border-radius:10px"><label>Nombre del puesto</label><input id="postName_'+p.id+'" placeholder="Ej. Puesto Fijo Principal"><label>Modalidad</label><select id="postMode_'+p.id+'"><option>Fijo</option><option>Motorizado</option><option>Ronda móvil</option><option>Otro</option></select><label>Duración</label><select id="postHours_'+p.id+'"><option>8 horas</option><option>10 horas</option><option>12 horas</option><option>24 horas</option><option>Variable</option></select><label>Horario</label><select id="postSchedule_'+p.id+'"><option>Nocturno</option><option>Diurno</option><option>24 horas</option><option>Variable</option></select><label>Relevo</label><select id="postRelief_'+p.id+'"><option>Sin relevo</option><option>Con relevo</option></select><button class="navy full" onclick="savePost('+p.id+')">GUARDAR PUESTO</button></div>';
- p.posts.forEach(function(q){h+='<div style="margin-top:10px;padding:10px;background:white;border:1px solid #d9e4ee;border-radius:9px"><b>'+E(q.name)+'</b> <span class="pill '+(q.active?'':'off')+'">'+(q.active?'ACTIVO':'INACTIVO')+'</span><div class="time">'+E(q.mode)+' · '+E(q.hours)+' · '+E(q.schedule)+' · '+E(q.relief)+'</div><button class="light full" onclick="togglePost('+p.id+','+q.id+')">'+(q.active?'DESACTIVAR PUESTO':'ACTIVAR PUESTO')+'</button></div>'});
- h+='<button class="light full" onclick="toggleProject('+p.id+')">'+(p.active?'DESACTIVAR PROYECTO':'ACTIVAR PROYECTO')+'</button>';x.innerHTML=h;box.appendChild(x)})
+ p.posts.forEach(function(q){h+='<div style="margin-top:10px;padding:10px;background:white;border:1px solid #d9e4ee;border-radius:9px"><b>'+E(q.name)+'</b> <span class="pill '+(q.active?'':'off')+'">'+(q.active?'ACTIVO':'INACTIVO')+'</span><div class="time">'+E(q.mode)+' · '+E(q.hours)+' · '+E(q.schedule)+' · '+E(q.relief)+'</div><button class="light full" onclick="togglePost('+p.id+','+q.id+')">'+(q.active?'DESACTIVAR PUESTO':'ACTIVAR PUESTO')+'</button><button class="danger full" onclick="deletePost('+p.id+','+q.id+')">ELIMINAR PUESTO DEFINITIVAMENTE</button></div>'});
+ h+='<button class="light full" onclick="toggleProject('+p.id+')">'+(p.active?'DESACTIVAR PROYECTO':'ACTIVAR PROYECTO')+'</button><button class="danger full" onclick="deleteProject('+p.id+')">ELIMINAR PROYECTO DEFINITIVAMENTE</button>';x.innerHTML=h;box.appendChild(x)})
 }
 
 function fillPosts(){fillGuardProjects()}
