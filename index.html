@@ -412,11 +412,20 @@ function reportData(){
  var period=type=='daily'?reportDailyPeriod():document.getElementById('reportMonth').value;
  if(period===null)return null;
  if(!period){alert('Seleccione la fecha o el mes del informe.');return null}
+ function normPlace(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
+ var projectName=normPlace(p.name),selectedPost=normPlace(post);
+ var projectPosts=(p.posts||[]).map(function(q){return normPlace(q.name)}).filter(Boolean);
  var logs=d.logs.filter(function(x){
   var ld=new Date(x.at),localDay=ld.getFullYear()+'-'+String(ld.getMonth()+1).padStart(2,'0')+'-'+String(ld.getDate()).padStart(2,'0');
   var okDate=type=='daily'?localDay==period:localDay.slice(0,7)==period;
-  var place=(x.puesto||'').toLowerCase();
-  return okDate&&place.indexOf((p.name||'').toLowerCase())>=0&&(!post||place.indexOf(post.toLowerCase())>=0)
+  var place=normPlace(x.puesto);
+  var okPlace;
+  if(selectedPost){
+   okPlace=place===selectedPost||place.indexOf(selectedPost)>=0;
+  }else{
+   okPlace=place.indexOf(projectName)>=0||projectPosts.some(function(q){return place===q||place.indexOf(q)>=0});
+  }
+  return okDate&&okPlace
  }).sort(function(x,y){return x.at.localeCompare(y.at)});
  return {p:p,post:post,type:type,period:period,logs:logs}
 }
