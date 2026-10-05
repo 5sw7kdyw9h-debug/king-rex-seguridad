@@ -116,10 +116,11 @@
 </div>
 <div id="reports" class="view hidden">
  <div class="card"><h2>Informes de Bitácora</h2><p class="muted">Seleccione el proyecto, el puesto y el período que necesita entregar al cliente.</p>
- <label>Proyecto</label><select id="reportProject" onchange="fillReportPosts()"><option value="">Seleccione proyecto</option></select>
- <label>Puesto</label><select id="reportPost"><option value="">Todos los puestos</option></select>
- <label>Tipo de informe</label><select id="reportType" onchange="toggleReportDate()"><option value="daily">Informe diario</option><option value="monthly">Informe mensual</option></select>
- <div id="dailyBox"><label>Fecha del informe</label><div class="actions"><div><label>Día</label><select id="reportDayNum"></select></div><div><label>Mes</label><select id="reportMonthNum"><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div></div><label>Año</label><select id="reportYear"></select><div class="time">Formato del informe: DÍA / MES / AÑO</div></div>
+ <label>Proyecto</label><select id="reportProject" onchange="fillReportPosts();fillReportShifts()"><option value="">Seleccione proyecto</option></select>
+ <label>Puesto</label><select id="reportPost" onchange="fillReportShifts()"><option value="">Todos los puestos</option></select>
+ <label>Tipo de informe</label><select id="reportType" onchange="toggleReportDate()"><option value="daily">Informe diario</option><option value="shift">Informe por turno</option><option value="monthly">Informe mensual</option></select>
+ <div id="dailyBox"><label>Fecha del informe</label><div class="actions"><div><label>Día</label><select id="reportDayNum" onchange="fillReportShifts()"></select></div><div><label>Mes</label><select id="reportMonthNum" onchange="fillReportShifts()"><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div></div><label>Año</label><select id="reportYear" onchange="fillReportShifts()"></select><div class="time">Formato del informe: DÍA / MES / AÑO</div></div>
+ <div id="shiftBox" class="hidden"><label>Turno encontrado</label><select id="reportShift"><option value="">Seleccione primero la fecha de inicio</option></select><p class="muted">Se mostrarán todos los registros desde el inicio hasta el cierre del turno, aunque continúe al día siguiente.</p></div>
  <div id="monthBox" class="hidden"><label>Mes</label><input id="reportMonth" type="month"></div>
  <button class="navy full" onclick="previewReport()">VISTA PREVIA DEL INFORME</button>
  <button class="primary full" onclick="printReport()">📄 GENERAR / GUARDAR PDF</button>
@@ -394,7 +395,7 @@ function fillReportProjects(){
 }
 function fillReportPosts(){
  var ps=document.getElementById('reportPost'),sel=document.getElementById('reportProject');if(!ps||!sel)return;var d=D(),p=d.projects.find(function(x){return String(x.id)==sel.value});
- ps.innerHTML='<option value="">Todos los puestos</option>';if(p)p.posts.filter(function(q){return q.active}).forEach(function(q){var o=document.createElement('option');o.value=q.name;o.textContent=q.name;ps.appendChild(o)})
+ ps.innerHTML='<option value="">Todos los puestos</option>';if(p)p.posts.filter(function(q){return q.active}).forEach(function(q){var o=document.createElement('option');o.value=q.name;o.textContent=q.name;ps.appendChild(o)});if(document.getElementById('reportType')&&document.getElementById('reportType').value=='shift')fillReportShifts()
 }
 function initReportDateSelectors(){
  var ds=document.getElementById('reportDayNum'),ys=document.getElementById('reportYear'),ms=document.getElementById('reportMonthNum');if(!ds||!ys||!ms)return;
@@ -402,32 +403,61 @@ function initReportDateSelectors(){
  if(!ys.options.length){var y=new Date().getFullYear();for(var j=y-3;j<=y+2;j++){var o=document.createElement('option');o.value=String(j);o.textContent=String(j);ys.appendChild(o)}}
  var n=new Date();ds.value=String(n.getDate()).padStart(2,'0');ms.value=String(n.getMonth()+1).padStart(2,'0');ys.value=String(n.getFullYear())
 }
-function toggleReportDate(){var m=document.getElementById('reportType').value=='monthly';document.getElementById('dailyBox').classList.toggle('hidden',m);document.getElementById('monthBox').classList.toggle('hidden',!m);if(!m)initReportDateSelectors()}
+function toggleReportDate(){
+ var type=document.getElementById('reportType').value,m=type=='monthly',sh=type=='shift';
+ document.getElementById('dailyBox').classList.toggle('hidden',m);
+ document.getElementById('monthBox').classList.toggle('hidden',!m);
+ var sb=document.getElementById('shiftBox');if(sb)sb.classList.toggle('hidden',!sh);
+ if(!m){initReportDateSelectors();if(sh)fillReportShifts()}
+}
+function localDayOf(v){var d=new Date(v);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function normReportPlace(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
+function shiftMatchesReportPlace(sh,p,post){
+ var place=normReportPlace(sh.puesto),selected=normReportPlace(post),projectName=normReportPlace(p&&p.name);
+ var projectPosts=((p&&p.posts)||[]).map(function(q){return normReportPlace(q.name)}).filter(Boolean);
+ if(selected)return place===selected||place.indexOf(selected)>=0;
+ return place.indexOf(projectName)>=0||projectPosts.some(function(q){return place===q||place.indexOf(q)>=0})
+}
+function fillReportShifts(){
+ var sel=document.getElementById('reportShift');if(!sel)return;
+ sel.innerHTML='<option value="">Seleccione un turno</option>';
+ if(!document.getElementById('reportType')||document.getElementById('reportType').value!='shift')return;
+ var period=reportDailyPeriod();if(!period)return;
+ var d=D(),pid=document.getElementById('reportProject').value,p=d.projects.find(function(x){return String(x.id)==pid}),post=document.getElementById('reportPost').value;
+ if(!p){sel.innerHTML='<option value="">Seleccione proyecto y puesto</option>';return}
+ var shifts=(d.shifts||[]).filter(function(sh){return sh.start&&localDayOf(sh.start)==period&&shiftMatchesReportPlace(sh,p,post)}).sort(function(a,b){return String(a.start).localeCompare(String(b.start))});
+ if(!shifts.length){sel.innerHTML='<option value="">No hay turnos iniciados en esta fecha</option>';return}
+ shifts.forEach(function(sh){var o=document.createElement('option');o.value=String(sh.id);var ini=new Date(sh.start),fin=sh.end?new Date(sh.end):null;o.textContent=(sh.vigilante||'Vigilante')+' · '+(sh.turnoTipo||'Turno')+' · '+ini.toLocaleString('es-EC',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' → '+(fin?fin.toLocaleString('es-EC',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'EN CURSO');sel.appendChild(o)})
+}
 function reportDailyPeriod(){var d=document.getElementById('reportDayNum').value,m=document.getElementById('reportMonthNum').value,y=document.getElementById('reportYear').value;if(!d||!m||!y)return '';var max=new Date(Number(y),Number(m),0).getDate();if(Number(d)>max){alert('La fecha seleccionada no existe. Revise el día y el mes.');return null}return y+'-'+m+'-'+d}
-function displayReportPeriod(period,type){if(type!='daily')return period;var a=period.split('-');return a.length==3?a[2]+'/'+a[1]+'/'+a[0]:period}
+function displayReportPeriod(period,type){if(type=='monthly')return period;var a=period.split('-');return a.length==3?a[2]+'/'+a[1]+'/'+a[0]:period}
 function reportData(){
  var d=D(),pid=document.getElementById('reportProject').value,p=d.projects.find(function(x){return String(x.id)==pid});
  if(!p){alert('Seleccione un proyecto.');return null}
  var post=document.getElementById('reportPost').value,type=document.getElementById('reportType').value;
- var period=type=='daily'?reportDailyPeriod():document.getElementById('reportMonth').value;
+ var period=type=='monthly'?document.getElementById('reportMonth').value:reportDailyPeriod();
  if(period===null)return null;
  if(!period){alert('Seleccione la fecha o el mes del informe.');return null}
- function normPlace(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
- var projectName=normPlace(p.name),selectedPost=normPlace(post);
- var projectPosts=(p.posts||[]).map(function(q){return normPlace(q.name)}).filter(Boolean);
- var logs=d.logs.filter(function(x){
-  var ld=new Date(x.at),localDay=ld.getFullYear()+'-'+String(ld.getMonth()+1).padStart(2,'0')+'-'+String(ld.getDate()).padStart(2,'0');
-  var okDate=type=='daily'?localDay==period:localDay.slice(0,7)==period;
-  var place=normPlace(x.puesto);
-  var okPlace;
-  if(selectedPost){
-   okPlace=place===selectedPost||place.indexOf(selectedPost)>=0;
-  }else{
-   okPlace=place.indexOf(projectName)>=0||projectPosts.some(function(q){return place===q||place.indexOf(q)>=0});
-  }
-  return okDate&&okPlace
- }).sort(function(x,y){return x.at.localeCompare(y.at)});
- return {p:p,post:post,type:type,period:period,logs:logs}
+ var selectedShift=null,logs=[];
+ if(type=='shift'){
+  var sid=document.getElementById('reportShift').value;
+  if(!sid){alert('Seleccione el turno que desea consultar.');return null}
+  selectedShift=(d.shifts||[]).find(function(sh){return String(sh.id)==sid});
+  if(!selectedShift){alert('No se encontró el turno seleccionado.');return null}
+  var st=new Date(selectedShift.start).getTime(),en=selectedShift.end?new Date(selectedShift.end).getTime():Date.now();
+  logs=d.logs.filter(function(x){
+   var t=new Date(x.at).getTime();if(!(t>=st&&t<=en))return false;
+   if(selectedShift.userId&&x.userId&&String(x.userId)!=String(selectedShift.userId))return false;
+   if(!selectedShift.userId&&selectedShift.vigilante&&x.vigilante&&normReportPlace(x.vigilante)!=normReportPlace(selectedShift.vigilante))return false;
+   return shiftMatchesReportPlace(x,p,selectedShift.puesto||post)
+  }).sort(function(a,b){return String(a.at).localeCompare(String(b.at))});
+ }else{
+  logs=d.logs.filter(function(x){
+   var localDay=localDayOf(x.at),okDate=type=='daily'?localDay==period:localDay.slice(0,7)==period;
+   return okDate&&shiftMatchesReportPlace(x,p,post)
+  }).sort(function(a,b){return String(a.at).localeCompare(String(b.at))});
+ }
+ return {p:p,post:post,type:type,period:period,logs:logs,shift:selectedShift}
 }
 function reportGuard(logs){
  var start=logs.find(function(x){return x.type=='Inicio de turno'&&x.vigilante});
@@ -441,10 +471,10 @@ function reportDateTitle(iso){
  return days[d.getDay()]+' '+d.getDate()+' DE '+months[d.getMonth()]+' DE '+d.getFullYear()
 }
 function reportBody(r){
- var title=r.type=='daily'?'INFORME DIARIO DE BITÁCORA':'INFORME MENSUAL DE BITÁCORA';
+ var title=r.type=='daily'?'INFORME DIARIO DE BITÁCORA':(r.type=='shift'?'INFORME POR TURNO':'INFORME MENSUAL DE BITÁCORA');
  var h='<div class="rh"><b>KING REX SECURITY CÍA. LTDA.</b><h2>'+title+'</h2></div>'+ 
  '<div class="ri"><b>Proyecto:</b> '+E(r.p.name)+'<br><b>Puesto:</b> '+E(r.post||'Todos los puestos')+
- '<br><b>Período:</b> '+E(displayReportPeriod(r.period,r.type))+'</div>';
+ '<br><b>Período:</b> '+E(r.type=='shift'&&r.shift?(F(r.shift.start)+' → '+(r.shift.end?F(r.shift.end):'EN CURSO')):displayReportPeriod(r.period,r.type))+'</div>';
  if(!r.logs.length)return h+'<p class="muted">No existen registros que coincidan con estos filtros.</p>';
  var lastDate='',lastGuard='',activeTurn='',movementRows=[];
  function isCompactMovement(x){
@@ -479,7 +509,7 @@ function reportBody(r){
  flushMovements();
  var starts=r.logs.filter(function(x){return x.type=='Inicio de turno'}).length;
  var closes=r.logs.filter(function(x){return x.type=='Fin de turno'}).length;
- if(starts>closes)h+='<div class="demo"><b>Turno en curso:</b> pendiente de cierre y firma final.</div>';
+ if((r.type=='shift'&&r.shift&&!r.shift.end)||(r.type!='shift'&&starts>closes))h+='<div class="demo"><b>Turno en curso:</b> pendiente de cierre y firma final.</div>';
  h+='<div class="rf"><b>Observaciones:</b><br><br><br></div>';
  return h
 }
