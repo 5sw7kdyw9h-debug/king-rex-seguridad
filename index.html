@@ -114,7 +114,7 @@
  <label>Proyecto</label><select id="reportProject" onchange="fillReportPosts()"><option value="">Seleccione proyecto</option></select>
  <label>Puesto</label><select id="reportPost"><option value="">Todos los puestos</option></select>
  <label>Tipo de informe</label><select id="reportType" onchange="toggleReportDate()"><option value="daily">Informe diario</option><option value="monthly">Informe mensual</option></select>
- <div id="dailyBox"><label>Fecha</label><input id="reportDay" type="date"></div>
+ <div id="dailyBox"><label>Fecha del informe</label><div class="actions"><div><label>Día</label><select id="reportDayNum"></select></div><div><label>Mes</label><select id="reportMonthNum"><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div></div><label>Año</label><select id="reportYear"></select><div class="time">Formato del informe: DÍA / MES / AÑO</div></div>
  <div id="monthBox" class="hidden"><label>Mes</label><input id="reportMonth" type="month"></div>
  <button class="navy full" onclick="previewReport()">VISTA PREVIA DEL INFORME</button>
  <button class="primary full" onclick="printReport()">📄 GENERAR / GUARDAR PDF</button>
@@ -127,19 +127,7 @@
 </section></main>
 <div id="tabs" class="tabs hidden"><button id="thome" class="active" onclick="go('home')">🏠<br>Inicio</button><button id="tlog" onclick="go('log')">📝<br>Registrar</button><button id="thistory" onclick="go('history')">📚<br>Bitácora</button></div>
 <script>
-var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d));if(window.kingRexCloudSync)window.kingRexCloudSync(d).catch(function(e){console.warn('Sincronización pendiente',e)})}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}
-function localDateKey(v){
- var d=v instanceof Date?v:new Date(v);
- if(isNaN(d.getTime()))return '';
- return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
-}
-function displayPeriod(v,type){
- if(!v)return '';
- var a=v.split('-');
- if(type=='monthly'&&a.length>=2)return a[1]+'/'+a[0];
- if(a.length>=3)return a[2]+'/'+a[1]+'/'+a[0];
- return v
-}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d));if(window.kingRexCloudSync)window.kingRexCloudSync(d).catch(function(e){console.warn('Sincronización pendiente',e)})}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
 async function doLogin(){
  var u=document.getElementById('loginUser').value.trim().toLowerCase(),pw=document.getElementById('loginPass').value,person='';
  var btn=document.querySelector('#loginScreen button.primary');
@@ -289,7 +277,7 @@ function closeShift(){
 }
 function historyRender(){
  var d=D(),a=d.logs.slice().reverse(),f=document.getElementById('fecha').value;
- if(f)a=a.filter(function(x){return localDateKey(x.at)==f});
+ if(f)a=a.filter(function(x){return x.at.slice(0,10)==f});
  var box=document.getElementById('list');box.innerHTML=a.length?'':'<p class="muted">No hay registros.</p>';
  a.forEach(function(x){
   var v=document.createElement('div');v.className='item';
@@ -402,15 +390,24 @@ function fillReportPosts(){
  var ps=document.getElementById('reportPost'),sel=document.getElementById('reportProject');if(!ps||!sel)return;var d=D(),p=d.projects.find(function(x){return String(x.id)==sel.value});
  ps.innerHTML='<option value="">Todos los puestos</option>';if(p)p.posts.filter(function(q){return q.active}).forEach(function(q){var o=document.createElement('option');o.value=q.name;o.textContent=q.name;ps.appendChild(o)})
 }
-function toggleReportDate(){var m=document.getElementById('reportType').value=='monthly';document.getElementById('dailyBox').classList.toggle('hidden',m);document.getElementById('monthBox').classList.toggle('hidden',!m)}
+function initReportDateSelectors(){
+ var ds=document.getElementById('reportDayNum'),ys=document.getElementById('reportYear'),ms=document.getElementById('reportMonthNum');if(!ds||!ys||!ms)return;
+ if(!ds.options.length)for(var i=1;i<=31;i++){var o=document.createElement('option');o.value=String(i).padStart(2,'0');o.textContent=String(i).padStart(2,'0');ds.appendChild(o)}
+ if(!ys.options.length){var y=new Date().getFullYear();for(var j=y-3;j<=y+2;j++){var o=document.createElement('option');o.value=String(j);o.textContent=String(j);ys.appendChild(o)}}
+ var n=new Date();ds.value=String(n.getDate()).padStart(2,'0');ms.value=String(n.getMonth()+1).padStart(2,'0');ys.value=String(n.getFullYear())
+}
+function toggleReportDate(){var m=document.getElementById('reportType').value=='monthly';document.getElementById('dailyBox').classList.toggle('hidden',m);document.getElementById('monthBox').classList.toggle('hidden',!m);if(!m)initReportDateSelectors()}
+function reportDailyPeriod(){var d=document.getElementById('reportDayNum').value,m=document.getElementById('reportMonthNum').value,y=document.getElementById('reportYear').value;if(!d||!m||!y)return '';var max=new Date(Number(y),Number(m),0).getDate();if(Number(d)>max){alert('La fecha seleccionada no existe. Revise el día y el mes.');return null}return y+'-'+m+'-'+d}
+function displayReportPeriod(period,type){if(type!='daily')return period;var a=period.split('-');return a.length==3?a[2]+'/'+a[1]+'/'+a[0]:period}
 function reportData(){
  var d=D(),pid=document.getElementById('reportProject').value,p=d.projects.find(function(x){return String(x.id)==pid});
  if(!p){alert('Seleccione un proyecto.');return null}
  var post=document.getElementById('reportPost').value,type=document.getElementById('reportType').value;
- var period=type=='daily'?document.getElementById('reportDay').value:document.getElementById('reportMonth').value;
+ var period=type=='daily'?reportDailyPeriod():document.getElementById('reportMonth').value;
+ if(period===null)return null;
  if(!period){alert('Seleccione la fecha o el mes del informe.');return null}
  var logs=d.logs.filter(function(x){
-  var localDay=localDateKey(x.at);
+  var ld=new Date(x.at),localDay=ld.getFullYear()+'-'+String(ld.getMonth()+1).padStart(2,'0')+'-'+String(ld.getDate()).padStart(2,'0');
   var okDate=type=='daily'?localDay==period:localDay.slice(0,7)==period;
   var place=(x.puesto||'').toLowerCase();
   return okDate&&place.indexOf((p.name||'').toLowerCase())>=0&&(!post||place.indexOf(post.toLowerCase())>=0)
@@ -432,11 +429,11 @@ function reportBody(r){
  var title=r.type=='daily'?'INFORME DIARIO DE BITÁCORA':'INFORME MENSUAL DE BITÁCORA';
  var h='<div class="rh"><b>KING REX SECURITY CÍA. LTDA.</b><h2>'+title+'</h2></div>'+
  '<div class="ri"><b>Proyecto:</b> '+E(r.p.name)+'<br><b>Puesto:</b> '+E(r.post||'Todos los puestos')+
- '<br><b>Período:</b> '+E(displayPeriod(r.period,r.type))+'</div>';
+ '<br><b>Período:</b> '+E(displayReportPeriod(r.period,r.type))+'</div>';
  if(!r.logs.length)return h+'<p class="muted">No existen registros que coincidan con estos filtros.</p>';
  var lastDate='',lastGuard='',activeTurn='';
  r.logs.forEach(function(x){
-  var day=localDateKey(x.at);
+  var dt=new Date(x.at),day=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
   if(day!=lastDate){h+='<div class="day-sep">'+reportDateTitle(day)+'</div>';lastDate=day;lastGuard=''}
   if(x.type=='Inicio de turno'||(x.vigilante&&x.vigilante!=lastGuard)){
    activeTurn=x.turnoTipo||'Turno no especificado';
