@@ -127,7 +127,19 @@
 </section></main>
 <div id="tabs" class="tabs hidden"><button id="thome" class="active" onclick="go('home')">🏠<br>Inicio</button><button id="tlog" onclick="go('log')">📝<br>Registrar</button><button id="thistory" onclick="go('history')">📚<br>Bitácora</button></div>
 <script>
-var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d));if(window.kingRexCloudSync)window.kingRexCloudSync(d).catch(function(e){console.warn('Sincronización pendiente',e)})}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+var K='kingrex_demo_v1',r='',shift=null,currentGuard=null;function D(){try{var d=JSON.parse(localStorage.getItem(K))||{};d.logs=d.logs||[];d.shifts=d.shifts||[];d.guards=d.guards||[];d.projects=d.projects||[];d.projects=d.projects.map(function(p){if(p.posts)return p;return{id:p.id||Date.now(),name:p.project||p.full||'Proyecto',active:p.active!==false,posts:[{id:(p.id||Date.now())+1,name:p.post||'Puesto',mode:p.mode||'Variable',hours:'',schedule:'',relief:'',active:p.active!==false}]}});return d}catch(e){return{logs:[],shifts:[],guards:[],projects:[]}}}function P(d){localStorage.setItem(K,JSON.stringify(d));if(window.kingRexCloudSync)window.kingRexCloudSync(d).catch(function(e){console.warn('Sincronización pendiente',e)})}function N(){return new Date().toISOString()}function F(x){return new Date(x).toLocaleString('es-EC')}
+function localDateKey(v){
+ var d=v instanceof Date?v:new Date(v);
+ if(isNaN(d.getTime()))return '';
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+}
+function displayPeriod(v,type){
+ if(!v)return '';
+ var a=v.split('-');
+ if(type=='monthly'&&a.length>=2)return a[1]+'/'+a[0];
+ if(a.length>=3)return a[2]+'/'+a[1]+'/'+a[0];
+ return v
+}function E(s){return String(s||'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
 async function doLogin(){
  var u=document.getElementById('loginUser').value.trim().toLowerCase(),pw=document.getElementById('loginPass').value,person='';
  var btn=document.querySelector('#loginScreen button.primary');
@@ -277,7 +289,7 @@ function closeShift(){
 }
 function historyRender(){
  var d=D(),a=d.logs.slice().reverse(),f=document.getElementById('fecha').value;
- if(f)a=a.filter(function(x){return x.at.slice(0,10)==f});
+ if(f)a=a.filter(function(x){return localDateKey(x.at)==f});
  var box=document.getElementById('list');box.innerHTML=a.length?'':'<p class="muted">No hay registros.</p>';
  a.forEach(function(x){
   var v=document.createElement('div');v.className='item';
@@ -398,7 +410,7 @@ function reportData(){
  var period=type=='daily'?document.getElementById('reportDay').value:document.getElementById('reportMonth').value;
  if(!period){alert('Seleccione la fecha o el mes del informe.');return null}
  var logs=d.logs.filter(function(x){
-  var ld=new Date(x.at),localDay=ld.getFullYear()+'-'+String(ld.getMonth()+1).padStart(2,'0')+'-'+String(ld.getDate()).padStart(2,'0');
+  var localDay=localDateKey(x.at);
   var okDate=type=='daily'?localDay==period:localDay.slice(0,7)==period;
   var place=(x.puesto||'').toLowerCase();
   return okDate&&place.indexOf((p.name||'').toLowerCase())>=0&&(!post||place.indexOf(post.toLowerCase())>=0)
@@ -420,11 +432,11 @@ function reportBody(r){
  var title=r.type=='daily'?'INFORME DIARIO DE BITÁCORA':'INFORME MENSUAL DE BITÁCORA';
  var h='<div class="rh"><b>KING REX SECURITY CÍA. LTDA.</b><h2>'+title+'</h2></div>'+
  '<div class="ri"><b>Proyecto:</b> '+E(r.p.name)+'<br><b>Puesto:</b> '+E(r.post||'Todos los puestos')+
- '<br><b>Período:</b> '+E(r.period)+'</div>';
+ '<br><b>Período:</b> '+E(displayPeriod(r.period,r.type))+'</div>';
  if(!r.logs.length)return h+'<p class="muted">No existen registros que coincidan con estos filtros.</p>';
  var lastDate='',lastGuard='',activeTurn='';
  r.logs.forEach(function(x){
-  var dt=new Date(x.at),day=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  var day=localDateKey(x.at);
   if(day!=lastDate){h+='<div class="day-sep">'+reportDateTitle(day)+'</div>';lastDate=day;lastGuard=''}
   if(x.type=='Inicio de turno'||(x.vigilante&&x.vigilante!=lastGuard)){
    activeTurn=x.turnoTipo||'Turno no especificado';
