@@ -44,6 +44,7 @@
 .re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px;break-inside:avoid}
 .rt{font-size:12px;color:#687782;margin-top:5px}.rp{text-align:center;margin-top:9px}
 .rp img{display:block;width:auto;height:auto;max-width:100%;max-height:620px;object-fit:contain;margin:auto;border-radius:7px}
+.rsig{margin-top:12px;padding:10px 12px;background:#f8fafc;border:1px solid #dbe4eb;border-radius:7px;break-inside:avoid}.rsig b{display:block;margin-bottom:6px;color:#163b65}.rsig img{display:block;max-width:280px;width:100%;height:auto;max-height:110px;object-fit:contain;object-position:left center;background:#fff;border-bottom:1px solid #8795a1;padding:4px;margin:0}.rsig .rt{margin-top:5px}
 .rf{margin-top:28px;break-inside:avoid}#reportPrintArea{display:none}
 @media print{
  body.printing-report>*:not(#reportPrintArea){display:none!important}
@@ -81,6 +82,7 @@
 #pdfDocument .rt{font-size:12px;color:#687782;margin-top:5px}
 #pdfDocument .rp{text-align:center;margin-top:9px}
 #pdfDocument .rp img{display:block;width:auto;height:auto;max-width:100%;max-height:650px;object-fit:contain;margin:auto;border-radius:7px}
+#pdfDocument .rsig{margin-top:12px;padding:10px 12px;background:#f8fafc;border:1px solid #dbe4eb;border-radius:7px;break-inside:avoid}#pdfDocument .rsig b{display:block;margin-bottom:6px;color:#163b65}#pdfDocument .rsig img{display:block;max-width:280px;width:100%;height:auto;max-height:110px;object-fit:contain;object-position:left center;background:#fff;border-bottom:1px solid #8795a1;padding:4px;margin:0}
 #pdfDocument .rf{margin-top:28px}
 @media(max-width:700px){.pdfbar{flex-wrap:wrap}.pdfbar b{order:-1;width:100%}#pdfDocument{margin:8px;padding:15px}}
 @media print{
@@ -442,11 +444,13 @@ function reportBody(r){
       '<br><b>Turno:</b> '+E(activeTurn)+(x.modalidad?' &nbsp; | &nbsp; <b>Modalidad:</b> '+E(x.modalidad):'')+'</div>';
    lastGuard=x.vigilante||''
   }
+  var sigLabel=x.type=='Inicio de turno'?'Firma del vigilante – Inicio de turno':(x.type=='Fin de turno'?'Firma del vigilante – Cierre de turno':'Firma del vigilante');
   h+='<div class="re"><b>'+E(x.type)+'</b><div>'+E(x.desc||'')+'</div>'+
   '<div class="rt">'+F(x.at)+' · '+E(x.puesto||'')+(x.turnoTipo?' · '+E(x.turnoTipo):'')+'</div>'+
-  (x.photo?'<div class="rp"><img src="'+x.photo+'"></div>':'')+'</div>'
+  (x.photo?'<div class="rp"><img src="'+x.photo+'"></div>':'')+
+  (x.signature?'<div class="rsig"><b>'+E(sigLabel)+'</b><img src="'+x.signature+'" alt="Firma digital del vigilante"><div class="rt">'+E(x.vigilante||'Vigilante')+' · '+F(x.at)+'</div></div>':'')+'</div>'
  });
- h+='<div class="rf"><b>Observaciones:</b><br><br><br>____________________________________<br>Firma del vigilante</div>';
+ h+='<div class="rf"><b>Observaciones:</b><br><br><br></div>';
  return h
 }
 function previewReport(){
