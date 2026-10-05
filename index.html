@@ -333,7 +333,7 @@ async function createGuard(){
  document.getElementById('gname').value='';document.getElementById('gid').value='';document.getElementById('gphone').value='';document.getElementById('guser').value='';document.getElementById('gpass').value='';document.getElementById('gproject').value='';fillGuardPosts();
  document.getElementById('newGuard').classList.add('hidden');renderGuards();alert('Cuenta creada y asignada a '+assignment+'.')
 }
-function toggleGuard(id){var d=D();d.guards.forEach(function(g){if(g.id==id)g.active=!g.active});P(d);renderGuards()}
+async function toggleGuard(id){var d=D(),g=d.guards.find(function(x){return x.id==id});if(!g)return;var old=g.active;g.active=!g.active;try{if(!window.kingRexUpdateGuardProfile)throw new Error('Firebase todavía está cargando');await window.kingRexUpdateGuardProfile(g);P(d);renderGuards();alert(g.active?'Cuenta activada.':'Cuenta desactivada.')}catch(e){g.active=old;alert('No se pudo actualizar la cuenta en Firebase. '+(e&&e.message?e.message:''))}}
 
 
 function createProject(){
@@ -366,7 +366,7 @@ function krPostOf(x){return x&&(x.post||x.puesto||x.postName||x.puestoNombre||''
 function projectHasHistory(d,pname){return (d.logs||[]).some(function(x){return krNorm(krProjectOf(x))==krNorm(pname)})||(d.shifts||[]).some(function(x){return krNorm(krProjectOf(x))==krNorm(pname)})}
 function postHasHistory(d,pname,qname){function hit(x){var xp=krNorm(krProjectOf(x)),xq=krNorm(krPostOf(x));return xp==krNorm(pname)&&xq==krNorm(qname)}return (d.logs||[]).some(hit)||(d.shifts||[]).some(hit)}
 function projectAssigned(d,pname){return (d.guards||[]).some(function(g){return krNorm(g.project||g.proyecto||'')==krNorm(pname)})}
-function postAssigned(d,pname,qname){return (d.guards||[]).some(function(g){return krNorm(g.project||g.proyecto||'')==krNorm(pname)&&krNorm(g.post||g.puesto||'')==krNorm(qname)})}
+function postAssigned(d,pname,qname){return (d.guards||[]).some(function(g){var gp=krNorm(g.project||g.proyecto||''),raw=krNorm(g.postName||g.puesto||g.post||''),q=krNorm(qname),combo=krNorm(pname+' / '+qname);return gp==krNorm(pname)&&(raw==q||raw==combo||raw.endsWith(' / '+q))})}
 function deletePost(pid,sid){
  if(r!='Administrador'){alert('Solo el administrador puede eliminar puestos.');return}
  var d=D(),p=d.projects.find(function(x){return x.id==pid});if(!p)return;var q=(p.posts||[]).find(function(x){return x.id==sid});if(!q)return;
@@ -621,7 +621,10 @@ async function printReport(){
 function downloadPrintableReport(){return printReport()}
 function closePDFView(){var o=document.getElementById('pdfOverlay');if(o)o.style.display='none'}
 function doPrintPDF(){return printReport()}
-function renderGuards(){var box=document.getElementById('guardList');if(!box)return;var d=D();box.innerHTML=d.guards.length?'':'<p class="muted">Todavía no hay vigilantes registrados.</p>';d.guards.forEach(function(g){var x=document.createElement('div');x.className='item';x.innerHTML='<b>'+E(g.name)+'</b> <span class="pill '+(g.active?'':'off')+'">'+(g.active?'ACTIVO':'INACTIVO')+'</span><div>Usuario: <b>'+E(g.user)+'</b></div><div class="time">'+E(g.post||'Sin puesto asignado')+' · '+E(g.shift)+'</div><button class="light full" onclick="toggleGuard('+g.id+')">'+(g.active?'DESACTIVAR CUENTA':'ACTIVAR CUENTA')+'</button>';box.appendChild(x)})}
+function renderGuards(){var box=document.getElementById('guardList');if(!box)return;var d=D();box.innerHTML=d.guards.length?'':'<p class="muted">Todavía no hay vigilantes registrados.</p>';d.guards.forEach(function(g){var x=document.createElement('div');x.className='item';var pname=g.project||'',qname=g.postName||((g.post||'').indexOf(' / ')>=0?(g.post||'').split(' / ').slice(-1)[0]:'');var po='<option value="">Seleccione proyecto</option>';d.projects.filter(function(p){return p.active}).forEach(function(p){po+='<option value="'+E(p.name)+'" '+(krNorm(p.name)==krNorm(pname)?'selected':'')+'>'+E(p.name)+'</option>'});var p=d.projects.find(function(p){return krNorm(p.name)==krNorm(pname)}),qo='<option value="">Seleccione puesto</option>';if(p)(p.posts||[]).filter(function(q){return q.active}).forEach(function(q){qo+='<option value="'+E(q.name)+'" '+(krNorm(q.name)==krNorm(qname)?'selected':'')+'>'+E(q.name)+'</option>'});x.innerHTML='<b>'+E(g.name)+'</b> <span class="pill '+(g.active?'':'off')+'">'+(g.active?'ACTIVO':'INACTIVO')+'</span><div>Usuario: <b>'+E(g.user)+'</b></div><div class="time">'+E(g.post||'Sin puesto asignado')+' · '+E(g.shift||'Sin modalidad asignada')+'</div><details style="margin-top:10px;padding:10px;background:#f7fafc;border:1px solid #d9e4ee;border-radius:9px"><summary style="font-weight:800;color:#0b2e5f;cursor:pointer">⚙️ EDITAR / REASIGNAR</summary><label>Proyecto</label><select id="egp_'+g.id+'" onchange="fillEditGuardPosts('+g.id+')">'+po+'</select><label>Puesto</label><select id="egq_'+g.id+'">'+qo+'</select><button class="primary full" onclick="saveGuardAssignment('+g.id+')">GUARDAR / REASIGNAR</button></details><button class="light full" onclick="toggleGuard('+g.id+')">'+(g.active?'DESACTIVAR CUENTA':'ACTIVAR CUENTA')+'</button>';box.appendChild(x)})}
+function fillEditGuardPosts(id){var d=D(),g=d.guards.find(function(x){return x.id==id}),ps=document.getElementById('egp_'+id),qs=document.getElementById('egq_'+id);if(!g||!ps||!qs)return;var p=d.projects.find(function(x){return x.name==ps.value});qs.innerHTML='<option value="">Seleccione puesto</option>';if(p)(p.posts||[]).filter(function(q){return q.active}).forEach(function(q){var o=document.createElement('option');o.value=q.name;o.textContent=q.name;qs.appendChild(o)})}
+async function saveGuardAssignment(id){var d=D(),g=d.guards.find(function(x){return x.id==id});if(!g)return;var pname=document.getElementById('egp_'+id).value,qname=document.getElementById('egq_'+id).value;var p=d.projects.find(function(x){return x.name==pname}),q=p&&(p.posts||[]).find(function(x){return x.name==qname});if(!p||!q){alert('Seleccione un proyecto y un puesto activos.');return}g.projectId=p.id;g.postId=q.id;g.project=p.name;g.postName=q.name;g.post=p.name+' / '+q.name;g.shift=[q.mode,q.hours,q.schedule,q.relief].filter(Boolean).join(' · ');try{if(!window.kingRexUpdateGuardProfile)throw new Error('Firebase todavía está cargando');await window.kingRexUpdateGuardProfile(g);P(d);renderGuards();alert('Vigilante reasignado correctamente.')}catch(e){alert('No se pudo actualizar la cuenta en Firebase. '+(e&&e.message?e.message:''))}}
+
 function cleanupNorm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
 function cleanupDay(v){var d=new Date(v);if(isNaN(d))return '';return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fillCleanupProjects(){var d=D(),s=document.getElementById('cleanProject');if(!s)return;s.innerHTML='<option value="">Seleccione proyecto</option>';d.projects.forEach(function(p){s.innerHTML+='<option value="'+E(p.id)+'">'+E(p.name)+'</option>'});document.getElementById('cleanReview').innerHTML='Seleccione los filtros y revise antes de eliminar.';document.getElementById('cleanConfirmBox').classList.add('hidden')}
@@ -734,6 +737,13 @@ window.kingRexDeleteTestData=async function(logIds,shiftIds){
 };
 window.kingRexFirebaseReady=true;
 console.log('KING REX V7.3 estado de turno multidispositivo corregido');
+
+window.kingRexUpdateGuardProfile=async function(g){
+ if(!auth.currentUser)throw new Error('Debe ingresar como administrador');
+ const adminSnap=await getDoc(doc(db,'users',auth.currentUser.uid));if(!adminSnap.exists()||adminSnap.data().role!=='admin')throw new Error('Solo el administrador puede administrar vigilantes');
+ const qs=await getDocs(collection(db,'users'));let ref=null;qs.forEach(s=>{const u=s.data();if(String(u.localId||'')===String(g.id)||String(u.username||'').toLowerCase()===String(g.user||'').toLowerCase())ref=doc(db,'users',s.id)});if(!ref)throw new Error('No se encontró el perfil del vigilante.');
+ await setDoc(ref,{active:g.active!==false,projectId:g.projectId||'',postId:g.postId||'',project:g.project||'',postName:g.postName||'',post:g.post||'',shift:g.shift||''},{merge:true});
+};
 </script>
 <script id="personnelControlScript">
 (function(){
