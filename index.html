@@ -81,7 +81,7 @@
 #pdfDocument .re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px;break-inside:avoid}
 #pdfDocument .rt{font-size:12px;color:#687782;margin-top:5px}
 #pdfDocument .rp{text-align:center;margin-top:9px}
-#pdfDocument .rp img{display:block;width:auto;height:auto;max-width:100%;max-height:650px;object-fit:contain;margin:auto;border-radius:7px}
+#pdfDocument .rp img{display:block;width:auto;height:auto;max-width:100%;max-height:430px;object-fit:contain;margin:auto;border-radius:7px}
 #pdfDocument .rsig{margin-top:12px;padding:10px 12px;background:#f8fafc;border:1px solid #dbe4eb;border-radius:7px;break-inside:avoid}#pdfDocument .rsig b{display:block;margin-bottom:6px;color:#163b65}#pdfDocument .rsig img{display:block;max-width:280px;width:100%;height:auto;max-height:110px;object-fit:contain;object-position:left center;background:#fff;border-bottom:1px solid #8795a1;padding:4px;margin:0}
 #pdfDocument .rf{margin-top:28px}
 @media(max-width:700px){.pdfbar{flex-wrap:wrap}.pdfbar b{order:-1;width:100%}#pdfDocument{margin:8px;padding:15px}}
@@ -482,12 +482,12 @@ async function printReport(){
  if(btn){btn.disabled=true;btn.innerHTML='⏳ GENERANDO PDF...'}
  var host=document.createElement('div');
  host.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;padding:28px;color:#1d2a36;font-family:Arial,sans-serif;line-height:1.4;z-index:-1';
- host.innerHTML='<style>.rh{border-bottom:3px solid #164d83;margin-bottom:12px;padding-bottom:8px}.rh h2{margin:5px 0;color:#163b65}.ri{background:#f2f6f9;border:1px solid #dbe4eb;border-radius:8px;padding:11px;margin-bottom:14px;line-height:1.55}.day-sep{font-size:18px;font-weight:bold;color:#fff;background:#164d83;padding:9px 11px;margin:18px 0 8px}.shift-head{background:#eaf3fb;border:1px solid #bcd5ea;border-radius:6px;padding:9px 11px;margin:7px 0 9px;line-height:1.55}.re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px}.rt{font-size:12px;color:#687782;margin-top:5px}.rp{text-align:center;margin-top:9px}.rp img{display:block;width:auto;height:auto;max-width:100%;max-height:650px;object-fit:contain;margin:auto}.rsig{margin-top:14px;padding-top:10px;border-top:1px solid #dce4e9;text-align:center}.rsig img{display:block;max-width:320px;max-height:120px;width:auto;height:auto;object-fit:contain;margin:8px auto}.rf{margin-top:28px}.demo{background:#edf6fc;padding:10px;border-radius:10px;margin-top:12px;font-size:13px}</style>'+reportBody(r);
+ host.innerHTML='<style>.rh{border-bottom:3px solid #164d83;margin-bottom:12px;padding-bottom:8px}.rh h2{margin:5px 0;color:#163b65}.ri{background:#f2f6f9;border:1px solid #dbe4eb;border-radius:8px;padding:11px;margin-bottom:14px;line-height:1.55}.day-sep{font-size:18px;font-weight:bold;color:#fff;background:#164d83;padding:9px 11px;margin:18px 0 8px}.shift-head{background:#eaf3fb;border:1px solid #bcd5ea;border-radius:6px;padding:9px 11px;margin:7px 0 9px;line-height:1.55}.re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px}.rt{font-size:12px;color:#687782;margin-top:5px}.rp{text-align:center;margin-top:9px}.rp img{display:block;width:auto;height:auto;max-width:100%;max-height:430px;object-fit:contain;margin:auto}.rsig{margin-top:14px;padding-top:10px;border-top:1px solid #dce4e9;text-align:center}.rsig img{display:block;max-width:320px;max-height:120px;width:auto;height:auto;object-fit:contain;margin:8px auto}.rf{margin-top:28px}.demo{background:#edf6fc;padding:10px;border-radius:10px;margin-top:12px;font-size:13px}</style>'+reportBody(r);
  document.body.appendChild(host);
  try{
   await waitReportImages(host);
   var jsPDF=window.jspdf.jsPDF,pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
-  var pageW=210,pageH=297,margin=12,usableW=pageW-margin*2,usableH=pageH-margin*2,y=margin;
+  var pageW=210,pageH=297,margin=12,usableW=pageW-margin*2,usableH=pageH-margin-12,y=margin;
   var blocks=Array.from(host.children).filter(function(el){return el.tagName!='STYLE'});
   for(var i=0;i<blocks.length;i++){
    var el=blocks[i];
@@ -496,9 +496,17 @@ async function printReport(){
    var h=canvas.height*usableW/canvas.width;
    var w=usableW;
    if(h>usableH){var scale=usableH/h;h*=scale;w*=scale}
-   if(y+h>pageH-margin&&y>margin+1){pdf.addPage();y=margin}
+   if(y+h>pageH-12&&y>margin+1){pdf.addPage();y=margin}
    pdf.addImage(img,'JPEG',margin,y,w,h,undefined,'FAST');
    y+=h+2.5
+  }
+  var totalPages=pdf.getNumberOfPages();
+  for(var pn=1;pn<=totalPages;pn++){
+   pdf.setPage(pn);
+   pdf.setDrawColor(210,220,228);pdf.setLineWidth(0.25);pdf.line(margin,pageH-8,pageW-margin,pageH-8);
+   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);pdf.setTextColor(95,108,120);
+   pdf.text('KING REX SECURITY CÍA. LTDA. · Control y Bitácora Virtual',margin,pageH-4.2);
+   pdf.text('Página '+pn+' de '+totalPages,pageW-margin,pageH-4.2,{align:'right'});
   }
   var period=displayReportPeriod(r.period,r.type).replace(/\//g,'-');
   var name='Informe_KING_REX_'+safeFilePart(r.p.name)+'_'+safeFilePart(r.post||'Todos')+'_'+safeFilePart(period)+'.pdf';
