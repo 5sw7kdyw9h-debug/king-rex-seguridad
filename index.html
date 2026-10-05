@@ -432,26 +432,41 @@ function reportDateTitle(iso){
 }
 function reportBody(r){
  var title=r.type=='daily'?'INFORME DIARIO DE BITÁCORA':'INFORME MENSUAL DE BITÁCORA';
- var h='<div class="rh"><b>KING REX SECURITY CÍA. LTDA.</b><h2>'+title+'</h2></div>'+
+ var h='<div class="rh"><b>KING REX SECURITY CÍA. LTDA.</b><h2>'+title+'</h2></div>'+ 
  '<div class="ri"><b>Proyecto:</b> '+E(r.p.name)+'<br><b>Puesto:</b> '+E(r.post||'Todos los puestos')+
  '<br><b>Período:</b> '+E(displayReportPeriod(r.period,r.type))+'</div>';
  if(!r.logs.length)return h+'<p class="muted">No existen registros que coincidan con estos filtros.</p>';
- var lastDate='',lastGuard='',activeTurn='';
+ var lastDate='',lastGuard='',activeTurn='',movementRows=[];
+ function isCompactMovement(x){
+  return !x.photo&&['Ingreso de vehículo','Salida de vehículo','Ingreso de persona','Salida de persona'].indexOf(x.type)>=0
+ }
+ function flushMovements(){
+  if(!movementRows.length)return;
+  h+='<div class="mov-wrap"><div class="mov-title">MOVIMIENTOS REGISTRADOS</div><table class="mov-table"><thead><tr><th>Hora</th><th>Movimiento</th><th>Descripción</th><th>Puesto</th></tr></thead><tbody>';
+  movementRows.forEach(function(m){
+   var d=new Date(m.at),time=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+   h+='<tr><td>'+E(time)+'</td><td>'+E(m.type)+'</td><td>'+E(m.desc||'Sin detalle')+'</td><td>'+E(m.puesto||'')+'</td></tr>'
+  });
+  h+='</tbody></table></div>';movementRows=[]
+ }
  r.logs.forEach(function(x){
   var dt=new Date(x.at),day=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-  if(day!=lastDate){h+='<div class="day-sep">'+reportDateTitle(day)+'</div>';lastDate=day;lastGuard=''}
+  if(day!=lastDate){flushMovements();h+='<div class="day-sep">'+reportDateTitle(day)+'</div>';lastDate=day;lastGuard=''}
   if(x.type=='Inicio de turno'||(x.vigilante&&x.vigilante!=lastGuard)){
-   activeTurn=x.turnoTipo||'Turno no especificado';
+   flushMovements();activeTurn=x.turnoTipo||'Turno no especificado';
    h+='<div class="shift-head"><b>Vigilante:</b> '+E(x.vigilante||'No registrado')+
       ' &nbsp; | &nbsp; <b>Cédula:</b> '+E(x.cedula||'No registrada')+
       '<br><b>Turno:</b> '+E(activeTurn)+(x.modalidad?' &nbsp; | &nbsp; <b>Modalidad:</b> '+E(x.modalidad):'')+'</div>';
    lastGuard=x.vigilante||''
   }
-  h+='<div class="re"><b>'+E(x.type)+'</b><div>'+E(x.desc||'')+'</div>'+
-  '<div class="rt">'+F(x.at)+' · '+E(x.puesto||'')+(x.turnoTipo?' · '+E(x.turnoTipo):'')+'</div>'+
+  if(isCompactMovement(x)){movementRows.push(x);return}
+  flushMovements();
+  h+='<div class="re"><b>'+E(x.type)+'</b><div>'+E(x.desc||'')+'</div>'+ 
+  '<div class="rt">'+F(x.at)+' · '+E(x.puesto||'')+(x.turnoTipo?' · '+E(x.turnoTipo):'')+'</div>'+ 
   (x.photo?'<div class="rp"><img src="'+x.photo+'"></div>':'')+
   (x.type=='Fin de turno'&&x.signature?'<div class="rsig"><b>Firma del vigilante – Entrega / Cierre de turno</b><img src="'+x.signature+'" alt="Firma digital de cierre del vigilante"><div class="rt">'+E(x.vigilante||'Vigilante')+' · '+F(x.at)+'</div></div>':'')+'</div>'
  });
+ flushMovements();
  var starts=r.logs.filter(function(x){return x.type=='Inicio de turno'}).length;
  var closes=r.logs.filter(function(x){return x.type=='Fin de turno'}).length;
  if(starts>closes)h+='<div class="demo"><b>Turno en curso:</b> pendiente de cierre y firma final.</div>';
@@ -482,7 +497,7 @@ async function printReport(){
  if(btn){btn.disabled=true;btn.innerHTML='⏳ GENERANDO PDF...'}
  var host=document.createElement('div');
  host.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;padding:28px;color:#1d2a36;font-family:Arial,sans-serif;line-height:1.4;z-index:-1';
- host.innerHTML='<style>.rh{border-bottom:3px solid #164d83;margin-bottom:12px;padding-bottom:8px}.rh h2{margin:5px 0;color:#163b65}.ri{background:#f2f6f9;border:1px solid #dbe4eb;border-radius:8px;padding:11px;margin-bottom:14px;line-height:1.55}.day-sep{font-size:18px;font-weight:bold;color:#fff;background:#164d83;padding:9px 11px;margin:18px 0 8px}.shift-head{background:#eaf3fb;border:1px solid #bcd5ea;border-radius:6px;padding:9px 11px;margin:7px 0 9px;line-height:1.55}.re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px}.rt{font-size:12px;color:#687782;margin-top:5px}.rp{text-align:center;margin-top:9px}.rp img{display:block;width:auto;height:auto;max-width:100%;max-height:430px;object-fit:contain;margin:auto}.rsig{margin-top:14px;padding-top:10px;border-top:1px solid #dce4e9;text-align:center}.rsig img{display:block;max-width:320px;max-height:120px;width:auto;height:auto;object-fit:contain;margin:8px auto}.rf{margin-top:28px}.demo{background:#edf6fc;padding:10px;border-radius:10px;margin-top:12px;font-size:13px}</style>'+reportBody(r);
+ host.innerHTML='<style>.rh{border-bottom:3px solid #164d83;margin-bottom:12px;padding-bottom:8px}.rh h2{margin:5px 0;color:#163b65}.ri{background:#f2f6f9;border:1px solid #dbe4eb;border-radius:8px;padding:11px;margin-bottom:14px;line-height:1.55}.day-sep{font-size:18px;font-weight:bold;color:#fff;background:#164d83;padding:9px 11px;margin:18px 0 8px}.shift-head{background:#eaf3fb;border:1px solid #bcd5ea;border-radius:6px;padding:9px 11px;margin:7px 0 9px;line-height:1.55}.re{border-left:4px solid #1594d2;border-bottom:1px solid #dce4e9;padding:10px 12px;margin-bottom:8px}.rt{font-size:12px;color:#687782;margin-top:5px}.rp{text-align:center;margin-top:9px}.rp img{display:block;width:auto;height:auto;max-width:100%;max-height:430px;object-fit:contain;margin:auto}.rsig{margin-top:14px;padding-top:10px;border-top:1px solid #dce4e9;text-align:center}.rsig img{display:block;max-width:320px;max-height:120px;width:auto;height:auto;object-fit:contain;margin:8px auto}.rf{margin-top:28px}.demo{background:#edf6fc;padding:10px;border-radius:10px;margin-top:12px;font-size:13px}.mov-wrap{margin:8px 0 12px;border:1px solid #d6e1e9;border-radius:7px;overflow:hidden}.mov-title{background:#edf5fb;color:#164d83;font-size:13px;font-weight:bold;padding:7px 9px}.mov-table{width:100%;border-collapse:collapse;font-size:11px}.mov-table th{background:#f5f8fa;text-align:left;color:#31485d;padding:6px;border-bottom:1px solid #d6e1e9}.mov-table td{padding:5px 6px;border-bottom:1px solid #e7edf1;vertical-align:top}.mov-table tr:last-child td{border-bottom:0}.mov-table th:nth-child(1),.mov-table td:nth-child(1){width:9%}.mov-table th:nth-child(2),.mov-table td:nth-child(2){width:23%}.mov-table th:nth-child(4),.mov-table td:nth-child(4){width:20%}</style>'+reportBody(r);
  document.body.appendChild(host);
  try{
   await waitReportImages(host);
